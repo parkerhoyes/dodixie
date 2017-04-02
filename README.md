@@ -18,6 +18,12 @@ these assumptions are correct; however, they are not documented by Poloniex.
   ordered). Otherwise, if the output is not 50000 trades, `returnTradeHistory`
   excludes no trades from the time range specified.
 
+Installation:
+
+```
+pip install git+https://github.com/parkerhoyes/dodixie.git
+```
+
 ## Disclaimers
 
 This project is not officially sanctioned by Poloniex.
