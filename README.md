@@ -5,6 +5,19 @@ Dodixie is a Python 3.x library for interfacing with cryptocurrency exchanges
 abstract API that internally leverages Poloniex's trading API to make trades,
 analyze market data, place loans, or make deposits / withdrawals.
 
+The following assumptions about the Poloniex API were made during the
+development of this library. After thorough testing, it appears as though all of
+these assumptions are correct; however, they are not documented by Poloniex.
+
+- The unit of least precision (ULP) of all currencies on Poloniex is 0.00000001.
+- API calls that take a time range (eg. `returnTradeHistory`) are inclusive on
+  both the start and end of the range.
+- A trade's fees are always rounded up to the nearest ULP.
+- If the `returnTradeHistory` commands limit output to 50000 trades, the trades
+  returned are chronologically contiguous (but not necessarily chronologically
+  ordered). Otherwise, if the output is not 50000 trades, `returnTradeHistory`
+  excludes no trades from the time range specified.
+
 ## Disclaimers
 
 This project is not officially sanctioned by Poloniex.
