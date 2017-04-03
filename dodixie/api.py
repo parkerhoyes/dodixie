@@ -607,10 +607,10 @@ class ExchangeAPI(ABC):
             pair: a string representing the pair for which a list of open orders is to be retreieved or None to get a
                   dictionary mapping all pairs available on this exchange to the list of open orders for that pair
         Returns:
-            a list of OrderHandle objects representing all outstanding (open) orders by the exchange member for the
-            specified pair or, if pair is None, a dictionary containing all such orders for all pairs available on this
-            exchange where the keys represent the currency pair strings and the values are a corresponding list as
-            described before
+            a list of Order objects representing all outstanding (open) orders by the exchange member for the specified
+            pair or, if pair is None, a dictionary containing all such orders for all pairs available on this exchange
+            where the keys represent the currency pair strings and the values are a corresponding list as described
+            before
         Raises:
             ExchangeAPIError: if an error occurs
         """
@@ -620,9 +620,10 @@ class ExchangeAPI(ABC):
         """Get a list of all trades made to fill (or partially fill) the specified order.
 
         Args:
-            order: an OrderHandle object representing the order for which to get all trades
+            order: an Order object representing the order for which to get all trades
         Returns:
-            a list, in an unspecified order, of all trades made to fill (or partially fill) the specified order
+            a list of Trade objects, in an unspecified order, of all trades made to fill (or partially fill) the
+            specified order
         Raises:
             ExchangeAPIError: if an error occurs
         """
@@ -658,7 +659,7 @@ class ExchangeAPI(ABC):
         """Cancel the specified order.
 
         Args:
-            order: an OrderHandle object representing the order that is to be cancelled
+            order: an Order object representing the order that is to be cancelled
         Raises:
             ExchangeAPIError: if an error occurs
         """

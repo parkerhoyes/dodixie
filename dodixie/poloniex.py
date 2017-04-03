@@ -475,8 +475,8 @@ class PoloniexAPI(api.ExchangeAPI):
             try:
                 trades = self._get_public_trade_history(pair, start, end)
                 if len(trades) == 50000:
-                    start = min(trades, key=lambda trade: trade.get_timestamp())
-                    end = max(trades, key=lambda trade: trade.get_timestamp())
+                    start = min(trades, key=lambda trade: trade.get_timestamp()).get_timestamp()
+                    end = max(trades, key=lambda trade: trade.get_timestamp()).get_timestamp()
                 self._persistent_cache['public_trade_history'][pair] = {
                     'times_cached': IntRanges((start, end)),
                     'trades': set(trades)
@@ -491,8 +491,8 @@ class PoloniexAPI(api.ExchangeAPI):
             # TODO This can be optimized - much of the data retrieved by this call may already be cached
             trades = self._get_public_trade_history(pair, start, end)
             if len(trades) == 50000:
-                start = min(trades, key=lambda trade: trade.get_timestamp())
-                end = max(trades, key=lambda trade: trade.get_timestamp())
+                start = min(trades, key=lambda trade: trade.get_timestamp()).get_timestamp()
+                end = max(trades, key=lambda trade: trade.get_timestamp()).get_timestamp()
             self._persistent_cache['public_trade_history'][pair]['trades'].update(trades)
             self._persistent_cache['public_trade_history'][pair]['times_cached'].add_range(start, end)
             if len(trades) == 50000:
