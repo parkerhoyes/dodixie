@@ -24,6 +24,12 @@ Installation:
 pip install git+https://github.com/parkerhoyes/dodixie.git
 ```
 
+## Documentation
+
+The API provided by this library is thoroughly documented in `/dodixie/api.py`.
+In addition, a number of example code snippets that use this library and a basic
+overview of the API is available in `/EXAMPLES.md`.
+
 ## Disclaimers
 
 This project is not officially sanctioned by Poloniex.
