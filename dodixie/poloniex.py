@@ -437,9 +437,9 @@ class PoloniexAPI(api.ExchangeAPI):
         if 'order_book' not in self._live_cache or self._live_cache['order_book']['depth'] < depth:
             self._live_cache['order_book'] = {'order_book': self._get_order_book(None, depth), 'depth': depth}
         if pair is None:
-            return self._cache['order_book']['order_book']
-        if pair in self._cache['order_book']['order_book']:
-            return self._cache['order_book']['order_book'][pair]
+            return self._live_cache['order_book']['order_book']
+        if pair in self._live_cache['order_book']['order_book']:
+            return self._live_cache['order_book']['order_book'][pair]
         else:
             raise api.NonexistentPairError("Nonexistent currency pair '" + pair + "'")
     def _get_order_book(self, pair=None, depth=10):
