@@ -362,37 +362,16 @@ class PoloniexAPI(api.ExchangeAPI):
     def _get_currencies(self):
         response = self.query_public_api('returnCurrencies')
         return list(response.keys())
-    def get_pair_info(self, pair=None):
-        if pair is not None:
-            if not isinstance(pair, str):
-                raise TypeError("pair must be None or of type str")
-            if _PAIR_REGEXP.match(pair) is None:
-                raise ValueError("Malformed pair")
-        if self._live_cache is None:
-            return self._get_pair_info(pair)
-        if 'pair_info' not in self._live_cache:
-            self._live_cache['pair_info'] = self._get_pair_info(None)
-        if pair is None:
-            return self._live_cache['pair_info']
-        if pair in self._live_cache['pair_info']:
-            return self._live_cache['pair_info'][pair]
-        else:
-            raise NonexistentPairError("Nonexistent currency pair '" + pair + "'")
-    def _get_pair_info(self, pair=None):
-        raw_ticker = self.query_public_api('returnTicker')
-        pair_info = {}
-        for p in raw_ticker:
-            pair_info[_decode_pair(p)] = api.PairInfo(base_ulp=_POLONIEX_ULP,
-                    quote_ulp=_POLONIEX_ULP,
-                    base_volume=Decimal(str(raw_ticker[p]['baseVolume'])),
-                    quote_volume=Decimal(str(raw_ticker[p]['quoteVolume'])),
-                    percent_change=Decimal(str(raw_ticker[p]['percentChange'])))
-        if pair is None:
-            return pair_info
-        if pair in pair_info:
-            return pair_info[pair]
-        else:
-            raise api.NonexistentPairError("Nonexistent currency pair '" + pair + "'")
+    def get_pairs(self):
+        if 'pairs' not in self._persistent_cache:
+            self._persistent_cache['pairs'] = self._get_pairs()
+        return self._persistent_cache['pairs']
+    def _get_pairs(self):
+        response = self.query_public_api('returnTicker')
+        pairs = {}
+        for raw_pair in response:
+            pairs[_decode_pair(raw_pair)] = api.PairInfo(base_ulp=_POLONIEX_ULP, quote_ulp=_POLONIEX_ULP)
+        return pairs
     def get_ticker(self, pair=None):
         if pair is not None:
             if not isinstance(pair, str):
@@ -415,7 +394,10 @@ class PoloniexAPI(api.ExchangeAPI):
         for p in raw_ticker:
             ticker[_decode_pair(p)] = api.Ticker(highest_bid=Decimal(str(raw_ticker[p]['highestBid'])),
                     lowest_ask=Decimal(str(raw_ticker[p]['lowestAsk'])),
-                    last=Decimal(str(raw_ticker[p]['last'])))
+                    last=Decimal(str(raw_ticker[p]['last'])),
+                    base_volume=Decimal(str(raw_ticker[p]['baseVolume'])),
+                    quote_volume=Decimal(str(raw_ticker[p]['quoteVolume'])),
+                    percent_change=Decimal(str(raw_ticker[p]['percentChange'])))
         if pair is None:
             return ticker
         if pair in ticker:

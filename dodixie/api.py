@@ -86,19 +86,19 @@ class NotSupportedError(ExchangeAPIError):
 
 base_ulp: the unit of the last place (the smallest representable amount) of the base currency
 quote_ulp: the unit of the last place (the smallest representable amount) of the quote currency
-base_volume: the 24-hour volume of the base currency for this currency pair
-quote_volume: the 24-hour volume of the quote currency for this currency pair
-percent_change: the percentage change of the value of this pair from 24 hours ago, represented as a decimal
 """
-PairInfo = namedtuple("PairInfo", ("base_ulp", "quote_ulp", "base_volume", "quote_volume", "percent_change"))
+PairInfo = namedtuple("PairInfo", ("base_ulp", "quote_ulp"))
 
 """A named tuple representing the ticker values for a particular currency pair.
 
 highest_bid: the highest bid for this currency pair
 lowest_ask: the lowest ask for this currency pair
 last: the rate of the last trade made for this currency pair
+base_volume: the 24-hour volume of the base currency for this currency pair
+quote_volume: the 24-hour volume of the quote currency for this currency pair
+percent_change: the percentage change of the value of this pair from 24 hours ago, represented as a decimal
 """
-Ticker = namedtuple("Ticker", ("highest_bid", "lowest_ask", "last"))
+Ticker = namedtuple("Ticker", ("highest_bid", "lowest_ask", "last", "base_volume", "quote_volume", "percent_change"))
 
 """A named tuple representing the order book for a particular currency pair.
 
@@ -502,16 +502,11 @@ class ExchangeAPI(ABC):
         """
         pass
     @abstractmethod
-    def get_pair_info(self, pair=None):
-        """Get a PairInfo object describing current information for the specified pair or all pairs.
+    def get_pairs(self):
+        """Get all pairs on the exchange and metadata about them.
 
-        Args:
-            pair: the pair for which to get information, or None to get information for all pairs available on this
-                  exchange
         Returns:
-            a PairInfo object describing current information for the specified pair or, if pair is None, a dictionary of
-            the information for every pair available on this exchange where the keys are the pair strings and the values
-            are the corresponding PairInfo objects
+            a dictionary mapping all pairs on the exchange to a PairInfo object with metadata about each respective pair
         Raises:
             ExchangeAPIError: if an error occurs
         """
