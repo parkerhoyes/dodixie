@@ -48,15 +48,15 @@ from .utils import *
 
 __all__ = [
     'ExchangeAPIError',
+    'NonexistentCurrencyError',
     'NonexistentPairError',
-    'NotSupportedError',
     'InsufficientInformationError',
+    'NotSupportedError',
     'PairInfo',
     'Ticker',
     'OrderBook',
     'Bid',
     'Ask',
-    'Balance',
     'ExchangeAPI'
 ]
 
@@ -64,19 +64,22 @@ class ExchangeAPIError(RuntimeError):
     """An error resulting from an interaction with an exchange's API."""
     pass
 
+class NonexistentCurrencyError(ExchangeAPIError):
+    """An error resulting from a caller of this API providing a currency that is not present on the exchange."""
+    pass
+
 class NonexistentPairError(ExchangeAPIError):
-    """An error resulting from a caller of this API providing a currency pair that is not present on the exchange (but
-    still syntactically correct)."""
+    """An error resulting from a caller of this API providing a currency pair that is not present on the exchange."""
+    pass
+
+class InsufficientInformationError(ExchangeAPIError):
+    """An error indicating that a caller of this API requested information or information was required which could not
+    be acquired."""
     pass
 
 class NotSupportedError(ExchangeAPIError):
     """An error indicating that a caller of this API requested an operation that is not supported (by this API and / or
     by the underlying exchange API)."""
-    pass
-
-class InsufficientInformationError(ExchangeAPIError):
-    """An error indicating that a caller of this API requested information or information was required which could not
-    be determined."""
     pass
 
 """A named tuple representing information for a particular currency pair.
@@ -117,13 +120,6 @@ rate: the rate, in the quote currency, requested for one unit of the base curren
 amount: the amount, in the base currency, being offered in this ask
 """
 Ask = namedtuple("Ask", ("rate", "amount"))
-
-"""A named tuple representing the balance of a particular account.
-
-available: the amount in the account available for placing orders
-on_orders: the amount in the account currently on order and as such is not available
-"""
-Balance = namedtuple("Balance", ("available", "on_orders"))
 
 class ExchangeAPI(ABC):
     class Trade(ABC):
@@ -496,6 +492,16 @@ class ExchangeAPI(ABC):
         """Return True if results from the exchange API that change over time may be cached, or False otherwise."""
         pass
     @abstractmethod
+    def get_currencies(self):
+        """Get a list of all currencies on the exchange.
+
+        Returns:
+            a list of all currencies on the exchange
+        Raises:
+            ExchangeAPIError: if an error occurs
+        """
+        pass
+    @abstractmethod
     def get_pair_info(self, pair=None):
         """Get a PairInfo object describing current information for the specified pair or all pairs.
 
@@ -576,25 +582,27 @@ class ExchangeAPI(ABC):
         """
         pass
     @abstractmethod
-    def get_balance(self, currency=None):
-        """Get the account balance of the specified currency of the exchange member.
+    def get_balance(self, currency=None, availability='all'):
+        """Get the account balance of the exchange member for all currencies or for a single currency. Funds are
+        included in the calculated balance if and only if all of the following conditions are met:
+
+        - The funds are of the specified currency
+        - One of the following conditions is met:
+            - availability is 'all'
+            - availability is 'available' and the funds are available (not on orders)
+            - availability is 'on_order' and the funds are on orders
+
+        If currency is None, then a dictionary is returned mapping all currencies with a nonzero balance to the balance
+        that this function would otherwise return if the respective currency was specified.
 
         Args:
-            currency: the symbol of the currency for which the account balance is to be retreieved
+            currency: the symbol of the currency for which the account balance is to be retreieved, or None to retrieve
+            the balance for all currencies
+            availability: the state in which the funds must be ('available', or 'on_order') or 'all' to include funds
+                          regardless of whether or not they are on order
         Returns:
-            a number representing the quantity of the specified currency in the exchange member's account
-        Raises:
-            ExchangeAPIError: if an error occurs
-        """
-        pass
-    @abstractmethod
-    def get_detailed_balance(self, currency=None):
-        """Get the account balance of the specified currency of the exchange member.
-
-        Args:
-            currency: the symbol of the currency for which the account balance is to be retreieved
-        Returns:
-            a Balance object describing the account balance of the specified currency of the exchange member
+            a dictionary mapping all currencies that have a nonzero balance to their balance if currency is None, or
+            just the balance of the specified currency if currency is not None
         Raises:
             ExchangeAPIError: if an error occurs
         """

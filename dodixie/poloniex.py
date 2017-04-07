@@ -355,6 +355,13 @@ class PoloniexAPI(api.ExchangeAPI):
         self.enable_live_cache()
     def is_live_cache_enabled(self):
         return self._live_cache is not None
+    def get_currencies(self):
+        if 'currencies' not in self._persistent_cache:
+            self._persistent_cache['currencies'] = self._get_currencies()
+        return self._persistent_cache['currencies']
+    def _get_currencies(self):
+        response = self.query_public_api('returnCurrencies')
+        return list(response.keys())
     def get_pair_info(self, pair=None):
         if pair is not None:
             if not isinstance(pair, str):
@@ -574,68 +581,120 @@ class PoloniexAPI(api.ExchangeAPI):
         if len(trades) == 50000:
             raise api.ExchangeAPIError("Reached maximum number of trades that may be retrieved in a single call: 50000")
         return trades
-    def get_balance(self, currency=None, account=None):
+    def get_balance(self, currency=None, availability='all', account='all'):
+        """Get the account balance of the exchange member for all currencies or for a single currency. Funds are
+        included in the calculated balance if and only if all of the following conditions are met:
+
+        - The funds are of the specified currency
+        - One of the following conditions is met:
+            - availability is 'all'
+            - availability is 'available' and the funds are available (not on orders)
+            - availability is 'on_order' and the funds are on orders
+            - account is 'all' or the funds are in the specified account ('exchange', 'margin', or 'lending')
+
+        If currency is None, then a dictionary is returned mapping all currencies with a nonzero balance to the balance
+        that this function would otherwise return if the respective currency was specified.
+
+        Args:
+            currency: the symbol of the currency for which the account balance is to be retreieved, or None to retrieve
+            the balance for all currencies
+            availability: the state in which the funds must be ('available', or 'on_order') or 'all' to include funds
+                          regardless of whether or not they are on order
+            account: the account that the funds must be in ('exchange', 'margin', or 'lending') or 'all' to include all
+                     accounts
+        Returns:
+            a dictionary mapping all currencies that have a nonzero balance to their balance if currency is None, or
+            just the balance of the specified currency if currency is not None
+        Raises:
+            ExchangeAPIError: if an error occurs
+        """
         if currency is not None:
             if not isinstance(currency, str):
                 raise ValueError("currency must be None or of type str")
             if _CURRENCY_REGEXP.match(currency) is None:
                 raise ValueError("Malformed currency")
-        if account not in [None, 'exchange', 'margin', 'lending']:
-            raise ValueError("account must be None or one of 'exchange', 'margin', or 'lending'")
+        if availability not in ['all', 'available', 'on_order']:
+            raise ValueError("availability must be one of 'all', 'available', or 'on_order'")
+        if account not in ['all', 'exchange', 'margin', 'lending']:
+            raise ValueError("account must be one of 'all', 'exchange', 'margin', or 'lending'")
         if self._live_cache is None:
-            return self._get_balance(currency, account)
-        if account not in self._live_cache['balance']:
-            self._live_cache['balance'][account] = self._get_balance(None, account)
-        if currency is None:
-            return self._cache['balance'][account]
-        if currency in self._cache['balance'][account]:
-            return self._cache['balance'][account][currency]
+            balances = self._get_balance(availability, account)
         else:
-            raise api.NonexistentPairError("Nonexistent currency pair '" + pair + "'")
-    def _get_balance(self, currency=None, account=None):
+            if availability not in self._live_cache['balance']:
+                self._live_cache['balance'][availability] = {}
+            if account not in self._live_cache['balance'][availability]:
+                self._live_cache['balance'][availability][account] = self._get_balance(availability, account)
+            balances = self._live_cache['balance'][availability][account]
+        if currency is None:
+            return balances
+        if currency in balances:
+            return balances[currency]
+        else:
+            return Decimal(0)
+    def _get_balance(self, availability, account):
         response = self.query_trading_api('returnCompleteBalances', {'account': account if account is not None else
                 'all'})
-        if currency is None:
-            balances = {}
-            for c in response:
-                balances[c] = Decimal(str(response[c]['available'])) + Decimal(str(response[c]['onOrders']))
-            return balances
-        if currency in response:
-            return Decimal(str(response[currency]['available'])) + Decimal(str(response[currency]['onOrders']))
-        else:
-            raise api.NonexistentPairError("Nonexistent currency pair '" + pair + "'")
-    def get_detailed_balance(self, currency=None, account=None):
-        if currency is not None:
-            if not isinstance(currency, str):
-                raise ValueError("currency must be None or of type str")
-            if _CURRENCY_REGEXP.match(currency) is None:
-                raise ValueError("Malformed currency")
-        if account not in [None, 'exchange', 'margin', 'lending']:
-            raise ValueError("account must be None or one of 'exchange', 'margin', or 'lending'")
-        if self._live_cache is None:
-            return self._get_detailed_balance(currency, account)
-        if account not in self._live_cache['detailed_balance']:
-            self._live_cache['detailed_balance'][account] = self._get_detailed_balance(None, account)
-        if currency is None:
-            return self._cache['detailed_balance'][account]
-        if currency in self._cache['detailed_balance'][account]:
-            return self._cache['detailed_balance'][account][currency]
-        else:
-            raise api.NonexistentPairError("Nonexistent currency pair '" + pair + "'")
-    def _get_detailed_balance(self, currency=None, account=None):
-        response = self.query_trading_api('returnCompleteBalances', {'account': account if account is not None else
-                'all'})
-        if currency is None:
-            balances = {}
-            for c in response:
-                balances[c] = api.Balance(available=Decimal(str(response[c]['available'])),
-                        on_orders=Decimal(str(response[c]['onOrders'])))
-            return balances
-        if currency in response:
-            return api.Balance(available=Decimal(str(response[currency]['available'])),
-                    on_orders=Decimal(str(response[currency]['onOrders'])))
-        else:
-            raise api.NonexistentPairError("Nonexistent currency pair '" + pair + "'")
+        if availability == 'all':
+            if account == 'all':
+                response = self.query_trading_api('returnCompleteBalances', {'account': 'all'})
+                balances = {}
+                for c in response:
+                    balances[c] = Decimal(str(response[c]['available'])) + Decimal(str(response[c]['onOrders']))
+            elif account == 'exchange':
+                response = self.query_trading_api('returnCompleteBalances')
+                balances = {}
+                for c in response:
+                    balances[c] = Decimal(str(response[c]['available'])) + Decimal(str(response[c]['onOrders']))
+            elif account == 'margin':
+                raise api.NotSupportedError("Getting the total margin account balance is not supported")
+            else: # account == 'lending'
+                raise api.NotSupportedError("Getting the total lending account balance is not supported")
+        elif availability == 'available':
+            if account == 'all':
+                response = self.query_trading_api('returnAvailableAccountBalances')
+                balances = {}
+                for a in response:
+                    for c in response[a]:
+                        if c not in balances:
+                            balances[c] = Decimal(0)
+                        balances[c] += Decimal(str(response[a][c]))
+            elif account == 'exchange':
+                response = self.query_trading_api('returnAvailableAccountBalances', {'account': 'exchange'})
+                balances = {}
+                for c in response['exchange']:
+                    balances[c] = Decimal(str(response['exchange'][c]))
+            elif account == 'margin':
+                response = self.query_trading_api('returnAvailableAccountBalances', {'account': 'margin'})
+                balances = {}
+                for c in response['margin']:
+                    balances[c] = Decimal(str(response['margin'][c]))
+            else: # account == 'lending'
+                response = self.query_trading_api('returnAvailableAccountBalances', {'account': 'lending'})
+                balances = {}
+                for c in response['lending']:
+                    balances[c] = Decimal(str(response['lending'][c]))
+        else: # availability == 'on_order'
+            if account == 'all':
+                response = self.query_trading_api('returnCompleteBalances', {'account': 'all'})
+                balances = {}
+                for c in response:
+                    balances[c] = Decimal(str(response[c]['onOrders']))
+            elif account == 'exchange':
+                response = self.query_trading_api('returnCompleteBalances')
+                balances = {}
+                for c in response:
+                    balances[c] = Decimal(str(response[c]['onOrders']))
+            elif account == 'margin':
+                raise api.NotSupportedError("Getting the margin account balance on order is not supported")
+            else: # account == 'lending'
+                raise api.NotSupportedError("Getting the lending account balance on order is not supported")
+        to_remove = []
+        for c in balances:
+            if balances[c] == 0:
+                to_remove.append(c)
+        for c in to_remove:
+            del balances[c]
+        return balances
     def get_open_orders(self, pair=None):
         if pair is not None:
             if not isinstance(pair, str):
