@@ -31,20 +31,29 @@ Poloniex APIs; this is useful for debugging purposes.
 ## Getting Account Balance
 
 Getting your account balance is simple with the `PoloniexAPI` object. The
-methods `PoloniexAPI.get_balance(...)` and
-`PoloniexAPI.get_detailed_balance(...)` are used to get account balances. Each
-take an optional currency symbol; if specified, the balance for that currency is
-returned, otherwise a dictionary containing your balance for all currencies is
-returned.
+`PoloniexAPI.get_balance(...)` method offers many different filters to get your
+balance by currency, account (exchange, margin, or lending), or by availability
+(on order or not on order).
+
+If a currency is not specified as the first parameter, or if it is `None`, then
+this method will return a dictionary containing your balance for all currencies
+that have a nonzero balance; otherwise, it will return a single balance for that
+currency.
 
 For example:
 
 ```
+>>> polo.get_balance()
+{'ETH': Decimal('99.99999999'), 'BTC': Decimal('42.00000000')}
 >>> polo.get_balance('ETH')
 Decimal('99.99999999')
->>> polo.get_detailed_balance('DCR')
-Balance(available=Decimal('99.99999999'), on_orders=Decimal('0E-8'))
+>>> polo.get_balance(availability='on_order', account='exchange')
+{'ETH': Decimal('50.00000000')}
 ```
+
+Additional Note: The method `PoloniexAPI.get_valuation(...)` is also quite
+useful. It works very similar to `get_balance`, except it estimates the value of
+your holdings for each currency in a quote currency of your choosing.
 
 ## Placing an Order
 
