@@ -713,3 +713,50 @@ class ExchangeAPI(ABC):
             base_volume += trade.get_amount()
             quote_volume += trade.get_total()
         return base_volume, quote_volume
+    def get_exchange_path(self, from_currency, to_currency):
+        """Get a "path" that can be taken in order to exchange one currency for another. This is useful if there is no
+        pair on the exchange that supports trading of one currency for another, but there is an indirect way to achieve
+        that result. This method will always find one of the paths that involves the fewest number of trades (the fewest
+        number of pairs).
+
+        For example, with a from_currency of 'XMR' and a to_currency of 'DCR', one possible exchange path may be:
+
+        1. sell XMR/BTC
+        2. buy DCR/BTC
+
+        Args:
+            from_currency: the currency that is desired to be sold for to_currency, indirectly; may not be equal to
+                           to_currency
+            to_currency: the currency that is desired to be bought for from_currency, indirectly; may not be equal to
+                         from_currency
+        Returns:
+            a list of tuples of the form (order_type, pair) where order_type is 'buy' or 'sell' and pair is the pair to
+            be bought or sold; buying or selling the respective pairs in the order returned indirectly achieves the
+            result of buying to_currency using from_currency
+        Raises:
+            ExchangeAPIError: if there exists no possible exchange path or if another error occurs
+        """
+        if from_currency == to_currency:
+            raise ValueError("from_currency may not be equal to to_currency")
+        pairs = set(self.get_pairs().keys())
+        g = Graph()
+        for pair in pairs:
+            base, quote = pair.split('/')
+            g.add_node(base)
+            g.add_node(quote)
+            g.add_edge(base, quote)
+        if not g.has_node(from_currency):
+            raise NonexistentCurrencyError("Nonexistent currency '" + from_currency + "'")
+        if not g.has_node(to_currency):
+            raise NonexistentCurrencyError("Nonexistent currency '" + to_currency + "'")
+        try:
+            path = g.shortest_path(from_currency, to_currency)
+        except NoSuchPath:
+            raise ExchangeAPIError("No exchange path exists from '" + from_currency + "' to '" + to_currency + "'")
+        pair_path = []
+        for i in range(len(path) - 1):
+            if path[i] + '/' + path[i + 1] in pairs:
+                pair_path.append(('sell', path[i] + '/' + path[i + 1]))
+            else:
+                pair_path.append(('buy', path[i + 1] + '/' + path[i]))
+        return pair_path

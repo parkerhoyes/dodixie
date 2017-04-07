@@ -20,6 +20,7 @@
 # 3. This notice may not be removed or altered from any source distribution.
 
 import calendar
+import math
 import time
 
 from . import api
@@ -30,7 +31,8 @@ __all__ = [
     'user_confirm',
     'log',
     'ObjectInfo',
-    'IntRanges'
+    'IntRanges',
+    'Graph'
 ]
 
 def format_timestamp(secs):
@@ -155,3 +157,65 @@ class IntRanges:
             if start >= r[0] and end <= r[1]:
                 return True
         return False
+
+class NoSuchPath(Exception):
+    pass
+
+class Graph:
+    def __init__(self):
+        self._nodes = set()
+        self._edges = set()
+    def add_node(self, node):
+        self._nodes.add(node)
+    def add_edge(self, node_a, node_b, length=1):
+        self._edges.add((node_a, node_b, length))
+    def has_node(self, node):
+        return node in self._nodes
+    def neighbors(self, node):
+        for edge in self._edges:
+            if edge[0] == node:
+                yield edge[1], edge[2]
+            elif edge[1] == node:
+                yield edge[0], edge[2]
+    def shortest_path(self, source, dest):
+        """Use an implementation of Dijkstra's algorithm to find the shortest path between two nodes in this graph. This
+        method is deterministic.
+
+        Args:
+            source: the source node
+            dest: the destination node
+        Returns:
+            a list representing one of the shortest paths from source to dest, the first element being source and the
+            last element being dest
+        """
+        unvisited = self._nodes.copy()
+        dist = {}
+        for node in self._nodes:
+            dist[node] = math.inf
+        prev = {}
+        dist[source] = 0
+        while True:
+            current = min(unvisited, key=lambda n: (dist[n], hash(n)))
+            if dist[current] == math.inf:
+                raise NoSuchPath()
+            unvisited.remove(current)
+            for neighbor, length in self.neighbors(current):
+                if neighbor not in unvisited:
+                    continue
+                tentative = dist[current] + length
+                if tentative < dist[neighbor]:
+                    dist[neighbor] = tentative
+                    prev[neighbor] = current
+            if current == dest:
+                break
+        del unvisited
+        del dist
+        path = []
+        current = dest
+        while True:
+            path.append(current)
+            if current == source:
+                break
+            current = prev[current]
+        path.reverse()
+        return path
