@@ -760,3 +760,63 @@ class ExchangeAPI(ABC):
             else:
                 pair_path.append(('buy', path[i + 1] + '/' + path[i]))
         return pair_path
+    def get_value_of(self, amount, from_currency, to_currency):
+        """Estimate the value of the specified amount of one currency in another currency.
+
+        Args:
+            amount: the amount, in from_currency, to be valued
+            from_currency: the currency in which amount is quoted
+            to_currency: the currency in which the value of the specified funds are to be estimated
+        Returns:
+            the estimated value of the specified funds quoted in to_currency
+        Raises:
+            ExchangeAPIError: if an error occurs
+        """
+        if from_currency == to_currency:
+            return Decimal(str(amount))
+        cache = self.is_live_cache_enabled()
+        if not cache:
+            self.enable_live_cache()
+        try:
+            path = self.get_exchange_path(from_currency, to_currency)
+            ticker = self.get_ticker()
+            value = Decimal(str(amount))
+            for trade in path:
+                if trade[0] == 'buy':
+                    value /= ticker[trade[1]].last
+                else:
+                    value *= ticker[trade[1]].last
+        finally:
+            if not cache:
+                self.disable_live_cache()
+        return value
+    def get_valuation(self, quote_currency, currency=None, availability='all', *args, **kwargs):
+        """Return the same results as a call to self.get_balance(currency, availability, *args, **kwargs), but quote all
+        returned values in quote_currency (this value is an estimation).
+
+        Args:
+            quote_currency: the currency in which the returned values are to be quoted
+            currency: passed as the first positional argument to get_balance(...)
+            availability: passed as the second positional argument to get_balance(...)
+            *args: passed to get_balance(...)
+            **kwargs: passed to get_balance(...)
+        Returns:
+            the same results as self.get_balance(currency, availability, *args, **kwargs), except with all balances
+            quoted in quote_currency (this is an estimation)
+        """
+        cache = self.is_live_cache_enabled()
+        if not cache:
+            self.enable_live_cache()
+        try:
+            if currency is None:
+                valuations = self.get_balance(currency, availability, *args, **kwargs)
+                for c in valuations:
+                    valuations[c] = self.get_value_of(valuations[c], c, quote_currency)
+                return valuations
+            else:
+                valuation = self.get_balance(currency, availability, *args, **kwargs)
+                valuation = self.get_value_of(valuation, currency, quote_currency)
+                return valuation
+        finally:
+            if not cache:
+                self.disable_live_cache()
