@@ -358,14 +358,14 @@ class PoloniexAPI(api.ExchangeAPI):
     def get_currencies(self):
         if 'currencies' not in self._persistent_cache:
             self._persistent_cache['currencies'] = self._get_currencies()
-        return self._persistent_cache['currencies']
+        return self._persistent_cache['currencies'].copy()
     def _get_currencies(self):
         response = self.query_public_api('returnCurrencies')
         return list(response.keys())
     def get_pairs(self):
         if 'pairs' not in self._persistent_cache:
             self._persistent_cache['pairs'] = self._get_pairs()
-        return self._persistent_cache['pairs']
+        return self._persistent_cache['pairs'].copy()
     def _get_pairs(self):
         response = self.query_public_api('returnTicker')
         pairs = {}
@@ -383,7 +383,7 @@ class PoloniexAPI(api.ExchangeAPI):
         if 'ticker' not in self._live_cache:
             self._live_cache['ticker'] = self._get_ticker(None)
         if pair is None:
-            return self._live_cache['ticker']
+            return self._live_cache['ticker'].copy()
         if pair in self._live_cache['ticker']:
             return self._live_cache['ticker'][pair]
         else:
@@ -419,7 +419,7 @@ class PoloniexAPI(api.ExchangeAPI):
         if 'order_book' not in self._live_cache or self._live_cache['order_book']['depth'] < depth:
             self._live_cache['order_book'] = {'order_book': self._get_order_book(None, depth), 'depth': depth}
         if pair is None:
-            return self._live_cache['order_book']['order_book']
+            return self._live_cache['order_book']['order_book'].copy()
         if pair in self._live_cache['order_book']['order_book']:
             return self._live_cache['order_book']['order_book'][pair]
         else:
@@ -428,20 +428,24 @@ class PoloniexAPI(api.ExchangeAPI):
         raw_order_book = self.query_public_api('returnOrderBook', {'currencyPair': _encode_pair(pair) if pair is not
                 None else 'all', 'depth': depth})
         if pair is not None:
-            order_book = api.OrderBook(bids=[], asks=[])
+            bids = []
+            asks = []
             for bid in raw_order_book['bids']:
-                order_book.bids.append(api.Bid(rate=Decimal(str(bid[0])), amount=Decimal(str(bid[1]))))
+                bids.append(api.Bid(rate=Decimal(str(bid[0])), amount=Decimal(str(bid[1]))))
             for ask in raw_order_book['asks']:
-                order_book.asks.append(api.Ask(rate=Decimal(str(ask[0])), amount=Decimal(str(ask[1]))))
+                asks.append(api.Ask(rate=Decimal(str(ask[0])), amount=Decimal(str(ask[1]))))
+            order_book = api.OrderBook(bids=tuple(bids), asks=tuple(asks))
             return order_book
         order_books = {}
         for raw_p in raw_order_book:
             p = _decode_pair(raw_p)
-            order_books[p] = api.OrderBook(bids=[], asks=[])
+            asks = []
+            bids = []
             for bid in raw_order_book[raw_p]['bids']:
-                order_books[p].bids.append(api.Bid(rate=Decimal(str(bid[0])), amount=Decimal(str(bid[1]))))
+                bids.append(api.Bid(rate=Decimal(str(bid[0])), amount=Decimal(str(bid[1]))))
             for ask in raw_order_book[raw_p]['asks']:
-                order_books[p].asks.append(api.Ask(rate=Decimal(str(ask[0])), amount=Decimal(str(ask[1]))))
+                asks.append(api.Ask(rate=Decimal(str(ask[0])), amount=Decimal(str(ask[1]))))
+            order_books[p] = api.OrderBook(bids=tuple(bids), asks=tuple(asks))
         return order_books
     def get_public_trade_history(self, pair, start=None, end=None):
         if pair is not None:
@@ -608,7 +612,7 @@ class PoloniexAPI(api.ExchangeAPI):
                 self._live_cache['balance'][availability][account] = self._get_balance(availability, account)
             balances = self._live_cache['balance'][availability][account]
         if currency is None:
-            return balances
+            return balances.copy()
         if currency in balances:
             return balances[currency]
         else:
@@ -688,7 +692,7 @@ class PoloniexAPI(api.ExchangeAPI):
         if 'open_orders' not in self._live_cache:
             self._live_cache['open_orders'] = self._get_open_orders()
         if pair is None:
-            return self._live_cache['open_orders']
+            return self._live_cache['open_orders'].copy()
         if pair in self._live_cache['open_orders']:
             return self._live_cache['open_orders'][pair]
         else:
@@ -730,12 +734,12 @@ class PoloniexAPI(api.ExchangeAPI):
             return self._get_order_trades(order)
         if order not in self._live_cache['order_trades']:
             self._live_cache['order_trades'][order] = self._get_order_trades(order)
-        return self._live_cache['order_trades'][order]
+        return self._live_cache['order_trades'][order].copy()
     def _get_order_trades(self, order):
         try:
             response = self.query_trading_api('returnOrderTrades', {'orderNumber': str(order.order_number)})
-            return [self._parse_then_get_trade(_decode_pair(raw_trade['currencyPair']), raw_trade, order) for raw_trade in
-                    response]
+            return [self._parse_then_get_trade(_decode_pair(raw_trade['currencyPair']), raw_trade, order) for raw_trade
+                    in response]
         except OrderNotFoundError:
             return []
     def place_buy_order(self, pair, rate, amount, order_subtype='exchange', lending_rate="0.02"):

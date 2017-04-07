@@ -102,8 +102,8 @@ Ticker = namedtuple("Ticker", ("highest_bid", "lowest_ask", "last", "base_volume
 
 """A named tuple representing the order book for a particular currency pair.
 
-bids: a list of Bid objects in descending order by rate for this currency pair
-asks: a list of Ask objects in ascending order by rate for this currency pair
+bids: a tuple of Bid objects in descending order by rate for this currency pair
+asks: a tuple of Ask objects in ascending order by rate for this currency pair
 """
 OrderBook = namedtuple("OrderBook", ("bids", "asks"))
 
@@ -532,7 +532,7 @@ class ExchangeAPI(ABC):
 
         Args:
             pair: the pair for which to get the order book or None to get a dictionary containing the order books for
-            all pairs available on this exchange
+                  all pairs available on this exchange
             depth: the minimum number of bids & asks to get for each order book
         Returns:
             an OrderBook object representing the orders for the specified pair or, if pair is None, a dictionary
